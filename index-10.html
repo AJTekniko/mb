@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simon Memory Game</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            font-family: Arial, sans-serif;
+            color: white;
+        }
+
+        .game-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .info-display {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            padding: 10px 30px;
+            font-size: 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+
+        .device-wrapper {
+            position: relative;
+            width: 500px;
+            height: 500px;
+            margin: 20px 0;
+        }
+
+        .device-image {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .side {
+            position: absolute;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.1s;
+            font-weight: bold;
+            font-size: 18px;
+            width: 100px;
+            height: 100px;
+        }
+
+        .side.active {
+            transform: scale(1.1);
+            box-shadow: 0 0 20px currentColor;
+        }
+
+        .purple-side {
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #9B59B6;
+        }
+
+        .purple-side.active {
+            background-color: rgba(155, 89, 182, 0.6);
+        }
+
+        .yellow-side {
+            top: 50%;
+            right: 50px;
+            transform: translateY(-50%);
+            color: #F1C40F;
+        }
+
+        .yellow-side.active {
+            background-color: rgba(241, 196, 15, 0.6);
+        }
+
+        .cyan-side {
+            bottom: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #00BCD4;
+        }
+
+        .cyan-side.active {
+            background-color: rgba(0, 188, 212, 0.6);
+        }
+
+        .green-side {
+            top: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #2D5016;
+        }
+
+        .green-side.active {
+            background-color: rgba(45, 80, 22, 0.6);
+        }
+
+        .input-section {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: 400px;
+        }
+
+        input {
+            padding: 12px;
+            font-size: 16px;
+            border: 2px solid white;
+            border-radius: 5px;
+            text-align: center;
+            color: white;
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        input::placeholder {
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .game-status {
+            font-size: 20px;
+            margin-top: 10px;
+            text-align: center;
+            min-height: 30px;
+        }
+
+        .game-status.game-over {
+            color: #FF6B6B;
+            font-weight: bold;
+        }
+
+        .game-status.success {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div class="info-display">
+            <span>Level: <span id="levelDisplay">--</span></span>
+        </div>
+
+        <div class="controls">
+            <button id="startBtn" onclick="startGame()">Start Game</button>
+        </div>
+
+        <div class="device-wrapper">
+            <img src="https://raw.githubusercontent.com/AJTekniko/tgaii/main/device.png" alt="Device" class="device-image">
+            <div class="side purple-side" data-color="purple">
+                <span id="word-purple"></span>
+            </div>
+            <div class="side yellow-side" data-color="yellow">
+                <span id="word-yellow"></span>
+            </div>
+            <div class="side cyan-side" data-color="cyan">
+                <span id="word-cyan"></span>
+            </div>
+            <div class="side green-side" data-color="green">
+                <span id="word-green"></span>
+            </div>
+        </div>
+
+        <div class="input-section">
+            <input type="text" id="playerInput" placeholder="Please type the word belonging to the side that you want to select" disabled>
+            <div class="game-status" id="gameStatus"></div>
+        </div>
+    </div>
+
+    <script>
+        const wordPool = {
+            purple: ['amethyst', 'grape', 'violet', 'plum'],
+            yellow: ['banana', 'lemon', 'gold', 'sunny'],
+            cyan: ['aqua', 'sky', 'ocean', 'turquoise'],
+            green: ['forest', 'lime', 'sage', 'olive']
+        };
+
+        const colors = ['purple', 'yellow', 'cyan', 'green'];
+        const frequencies = {
+            purple: 200,
+            yellow: 400,
+            cyan: 600,
+            green: 800,
+            buzzer: 100
+        };
+
+        let sequence = [];
+        let playerSequence = [];
+        let level = 0;
+        let gameActive = false;
+        let currentWords = {};
+        let usedWords = {
+            purple: [],
+            yellow: [],
+            cyan: [],
+            green: []
+        };
+
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+        function playSound(frequency, duration = 500) {
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            oscillator.frequency.value = frequency;
+            oscillator.type = 'sine';
+
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration / 1000);
+
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + duration / 1000);
+        }
+
+        function lightUpSide(color) {
+            const element = document.querySelector(`.${color}-side`);
+            element.classList.add('active');
+            playSound(frequencies[color]);
+
+            setTimeout(() => {
+                element.classList.remove('active');
+            }, 500);
+        }
+
+        function getRandomWord(color) {
+            const available = wordPool[color].filter(w => !usedWords[color].includes(w));
+
+            if (available.length === 0) {
+                usedWords[color] = [];
+                return wordPool[color][Math.floor(Math.random() * wordPool[color].length)];
+            }
+
+            const word = available[Math.floor(Math.random() * available.length)];
+            usedWords[color].push(word);
+            return word;
+        }
+
+        function setupWords() {
+            currentWords = {
+                purple: getRandomWord('purple'),
+                yellow: getRandomWord('yellow'),
+                cyan: getRandomWord('cyan'),
+                green: getRandomWord('green')
+            };
+
+            document.getElementById('word-purple').textContent = currentWords.purple;
+            document.getElementById('word-yellow').textContent = currentWords.yellow;
+            document.getElementById('word-cyan').textContent = currentWords.cyan;
+            document.getElementById('word-green').textContent = currentWords.green;
+        }
+
+        function playSequence() {
+            gameActive = false;
+            let delay = 1000;
+
+            sequence.forEach((color, index) => {
+                setTimeout(() => {
+                    lightUpSide(color);
+                }, delay + index * 800);
+            });
+
+            setTimeout(() => {
+                gameActive = true;
+                playerSequence = [];
+                document.getElementById('playerInput').value = '';
+                document.getElementById('playerInput').disabled = false;
+                document.getElementById('playerInput').focus();
+            }, delay + sequence.length * 800 + 500);
+        }
+
+        function handleInput(event) {
+            if (!gameActive) return;
+
+            const char = event.target.value.toLowerCase();
+            const lastChar = char[char.length - 1];
+
+            if (!char) {
+                document.getElementById('gameStatus').textContent = '';
+                return;
+            }
+
+            const validColors = Object.entries(currentWords)
+                .filter(([_, word]) => word.startsWith(char))
+                .map(([color, _]) => color);
+
+            if (validColors.length === 0) {
+                playSound(frequencies.buzzer);
+                event.target.value = '';
+                document.getElementById('gameStatus').textContent = '';
+                return;
+            }
+
+            if (char.length > 1) {
+                let matchedColor = null;
+
+                for (const [color, word] of Object.entries(currentWords)) {
+                    if (word === char) {
+                        matchedColor = color;
+                        break;
+                    }
+                }
+
+                if (!matchedColor) {
+                    for (const [color, word] of Object.entries(currentWords)) {
+                        if (!word.startsWith(char)) {
+                            playSound(frequencies.buzzer);
+                            gameActive = false;
+                            document.getElementById('playerInput').disabled = true;
+                            document.getElementById('gameStatus').classList.add('game-over');
+                            document.getElementById('gameStatus').textContent = `Game Over! Wrong word. Final Level: ${level}`;
+                            return;
+                        }
+                    }
+                }
+
+                if (matchedColor) {
+                    const expectedColor = sequence[playerSequence.length];
+
+                    if (matchedColor !== expectedColor) {
+                        playSound(frequencies.buzzer);
+                        gameActive = false;
+                        document.getElementById('playerInput').disabled = true;
+                        document.getElementById('gameStatus').classList.add('game-over');
+                        document.getElementById('gameStatus').textContent = `Game Over! Wrong sequence. Final Level: ${level}`;
+                        return;
+                    }
+
+                    lightUpSide(matchedColor);
+                    playerSequence.push(matchedColor);
+                    event.target.value = '';
+
+                    if (playerSequence.length === sequence.length) {
+                        document.getElementById('gameStatus').classList.remove('game-over');
+                        document.getElementById('gameStatus').classList.add('success');
+                        document.getElementById('gameStatus').textContent = `Perfect! Level ${level} complete!`;
+
+                        gameActive = false;
+                        document.getElementById('playerInput').disabled = true;
+
+                        setTimeout(() => {
+                            nextLevel();
+                        }, 1500);
+                    }
+                }
+            }
+        }
+
+        function nextLevel() {
+            level++;
+            document.getElementById('levelDisplay').textContent = level;
+            document.getElementById('gameStatus').textContent = '';
+            document.getElementById('gameStatus').classList.remove('success', 'game-over');
+
+            const randomColor = colors[Math.floor(Math.random() * colors.length)];
+            sequence.push(randomColor);
+
+            setupWords();
+            playSequence();
+        }
+
+        function startGame() {
+            sequence = [];
+            playerSequence = [];
+            level = 0;
+            gameActive = false;
+
+            document.getElementById('playerInput').value = '';
+            document.getElementById('playerInput').disabled = true;
+            document.getElementById('gameStatus').textContent = '';
+            document.getElementById('gameStatus').classList.remove('game-over', 'success');
+
+            nextLevel();
+        }
+
+        document.getElementById('playerInput').addEventListener('input', handleInput);
+    </script>
+</body>
+</html>

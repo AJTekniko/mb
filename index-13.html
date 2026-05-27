@@ -34,10 +34,48 @@
             gap: 20px;
         }
 
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            width: 100%;
+            justify-content: center;
+            position: relative;
+        }
+
         .info-display {
             font-size: 24px;
             font-weight: bold;
             margin-bottom: 10px;
+        }
+
+        .music-toggle {
+            position: absolute;
+            right: 20px;
+            top: 20px;
+        }
+
+        .music-toggle button {
+            padding: 10px 20px;
+            font-size: 14px;
+            background-color: #FF8C00;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .music-toggle button:hover {
+            background-color: #FF7F00;
+        }
+
+        .music-toggle button.music-on {
+            background-color: #4CAF50;
+        }
+
+        .music-toggle button.music-on:hover {
+            background-color: #45a049;
         }
 
         .controls {
@@ -247,9 +285,18 @@
     </style>
 </head>
 <body>
+    <audio id="bgMusic" loop>
+        <source src="https://raw.githubusercontent.com/AJTekniko/tgai/main/en/bg-music.mp3" type="audio/mpeg">
+    </audio>
+
     <div class="game-container">
-        <div class="info-display">
-            <span>Level: <span id="levelDisplay">--</span></span>
+        <div class="header">
+            <div class="info-display">
+                <span>Level: <span id="levelDisplay">--</span></span>
+            </div>
+            <div class="music-toggle">
+                <button id="musicToggle" class="music-on">🎵 Music On</button>
+            </div>
         </div>
 
         <div class="controls">
@@ -330,8 +377,21 @@
             green: []
         };
         let highestScore = localStorage.getItem('simonHighScore') ? parseInt(localStorage.getItem('simonHighScore')) : 0;
+        let musicEnabled = localStorage.getItem('simonMusicEnabled') !== 'false';
+        let gameRunning = false;
 
         const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const bgMusicElement = document.getElementById('bgMusic');
+        const musicToggleBtn = document.getElementById('musicToggle');
+
+        // Normalize text by removing accents and standardizing apostrophes
+        function normalizeText(text) {
+            return text
+                .toLowerCase()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '') // Remove accent marks
+                .replace(/[\u2018\u2019\u02BB\u02BC]/g, "'"); // Normalize apostrophes to straight quote
+        }
 
         function playSound(frequency, duration = 500) {
             const oscillator = audioContext.createOscillator();
@@ -351,21 +411,16 @@
         }
 
         function playBoomSound() {
-            const now = audioContext.currentTime;
-            const oscillator = audioContext.createOscillator();
-            const gainNode = audioContext.createGain();
+            const audio = new Audio('https://raw.githubusercontent.com/AJTekniko/tgai/main/en/boom.ogg');
+            audio.volume = 0.7;
+            audio.play();
+        }
 
-            oscillator.connect(gainNode);
-            gainNode.connect(audioContext.destination);
-
-            oscillator.frequency.setValueAtTime(150, now);
-            oscillator.frequency.exponentialRampToValueAtTime(50, now + 0.5);
-
-            gainNode.gain.setValueAtTime(0.5, now);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
-
-            oscillator.start(now);
-            oscillator.stop(now + 0.5);
+        function playWordAudio(word) {
+            const filename = word.toLowerCase().replace(/[\s']/g, '');
+            const audio = new Audio(`https://raw.githubusercontent.com/AJTekniko/tgai/main/en/${filename}.ogg`);
+            audio.volume = 0.8;
+            audio.play();
         }
 
         function lightUpSide(color) {
@@ -444,16 +499,17 @@
             if (event.key !== 'Enter' || !gameActive) return;
 
             event.preventDefault();
-            const input = document.getElementById('playerInput').value.trim().toLowerCase();
+            const input = document.getElementById('playerInput').value.trim();
 
             if (!input) {
                 return;
             }
 
+            const normalizedInput = normalizeText(input);
             let matchedColor = null;
 
             for (const [color, word] of Object.entries(currentWords)) {
-                if (word === input) {
+                if (normalizeText(word) === normalizedInput) {
                     matchedColor = color;
                     break;
                 }
@@ -461,7 +517,9 @@
 
             if (!matchedColor) {
                 playBoomSound();
+                stopBackgroundMusic();
                 gameActive = false;
+                gameRunning = false;
                 document.getElementById('playerInput').disabled = true;
                 document.getElementById('gameStatus').classList.add('game-over');
                 document.getElementById('gameStatus').textContent = `Game Over! Word not recognized.`;
@@ -477,7 +535,9 @@
 
             if (matchedColor !== expectedColor) {
                 playBoomSound();
+                stopBackgroundMusic();
                 gameActive = false;
+                gameRunning = false;
                 document.getElementById('playerInput').disabled = true;
                 document.getElementById('gameStatus').classList.add('game-over');
                 document.getElementById('gameStatus').textContent = `Game Over! Wrong sequence.`;
@@ -488,6 +548,9 @@
                 }, 500);
                 return;
             }
+
+            // Play word audio
+            playWordAudio(currentWords[matchedColor]);
 
             lightUpSide(matchedColor);
             playerSequence.push(matchedColor);
@@ -542,16 +605,63 @@
             playerSequence = [];
             level = 0;
             gameActive = false;
+            gameRunning = true;
 
             document.getElementById('playerInput').value = '';
             document.getElementById('playerInput').disabled = true;
             document.getElementById('gameStatus').textContent = '';
             document.getElementById('gameStatus').classList.remove('game-over', 'success');
 
+            if (musicEnabled) {
+                playBackgroundMusic();
+            }
+
             nextLevel();
         }
 
+        function playBackgroundMusic() {
+            bgMusicElement.currentTime = 0;
+            bgMusicElement.play();
+        }
+
+        function stopBackgroundMusic() {
+            bgMusicElement.pause();
+            bgMusicElement.currentTime = 0;
+        }
+
+        function toggleMusic() {
+            musicEnabled = !musicEnabled;
+            localStorage.setItem('simonMusicEnabled', musicEnabled);
+
+            if (musicEnabled) {
+                musicToggleBtn.textContent = '🎵 Music On';
+                musicToggleBtn.classList.add('music-on');
+                if (gameRunning) {
+                    playBackgroundMusic();
+                }
+            } else {
+                musicToggleBtn.textContent = '🔇 Music Off';
+                musicToggleBtn.classList.remove('music-on');
+                stopBackgroundMusic();
+            }
+        }
+
+        // Initialize music button state
+        function initializeMusicButton() {
+            if (musicEnabled) {
+                musicToggleBtn.textContent = '🎵 Music On';
+                musicToggleBtn.classList.add('music-on');
+            } else {
+                musicToggleBtn.textContent = '🔇 Music Off';
+                musicToggleBtn.classList.remove('music-on');
+            }
+        }
+
         document.getElementById('playerInput').addEventListener('keypress', handleKeyPress);
+        musicToggleBtn.addEventListener('click', toggleMusic);
+
+        // Initialize on page load
+        initializeMusicButton();
     </script>
 </body>
 </html>

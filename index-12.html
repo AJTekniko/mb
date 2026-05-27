@@ -20,6 +20,11 @@
             background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
             font-family: Arial, sans-serif;
             color: white;
+            transition: background 0.5s ease;
+        }
+
+        body.game-over-state {
+            background: linear-gradient(135deg, #8B0000 0%, #DC143C 100%);
         }
 
         .game-container {
@@ -77,15 +82,25 @@
         .side {
             position: absolute;
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
             border-radius: 50%;
             cursor: pointer;
             transition: all 0.1s;
             font-weight: bold;
-            font-size: 18px;
             width: 100px;
             height: 100px;
+        }
+
+        .side-word {
+            font-size: 18px;
+        }
+
+        .side-translation {
+            font-size: 12px;
+            opacity: 0.75;
+            margin-top: 2px;
         }
 
         .side.active {
@@ -174,6 +189,61 @@
             color: #4CAF50;
             font-weight: bold;
         }
+
+        .game-over-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .game-over-modal.show {
+            display: flex;
+        }
+
+        .game-over-content {
+            background-color: rgba(0, 0, 0, 0.9);
+            padding: 40px;
+            border-radius: 10px;
+            text-align: center;
+            border: 3px solid #FF6B6B;
+            max-width: 500px;
+        }
+
+        .game-over-content h1 {
+            font-size: 48px;
+            color: #FF6B6B;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+        }
+
+        .stats {
+            font-size: 24px;
+            margin: 20px 0;
+            line-height: 1.8;
+        }
+
+        .stat-label {
+            color: #FFD700;
+            font-weight: bold;
+        }
+
+        .stat-value {
+            color: #4CAF50;
+            font-size: 32px;
+        }
+
+        .game-over-content button {
+            margin-top: 30px;
+            padding: 15px 40px;
+            font-size: 18px;
+        }
     </style>
 </head>
 <body>
@@ -189,22 +259,37 @@
         <div class="device-wrapper">
             <img src="https://raw.githubusercontent.com/AJTekniko/tgaii/main/device.png" alt="Device" class="device-image">
             <div class="side purple-side" data-color="purple">
-                <span id="word-purple"></span>
+                <div class="side-word" id="word-purple"></div>
+                <div class="side-translation" id="translation-purple"></div>
             </div>
             <div class="side yellow-side" data-color="yellow">
-                <span id="word-yellow"></span>
+                <div class="side-word" id="word-yellow"></div>
+                <div class="side-translation" id="translation-yellow"></div>
             </div>
             <div class="side cyan-side" data-color="cyan">
-                <span id="word-cyan"></span>
+                <div class="side-word" id="word-cyan"></div>
+                <div class="side-translation" id="translation-cyan"></div>
             </div>
             <div class="side green-side" data-color="green">
-                <span id="word-green"></span>
+                <div class="side-word" id="word-green"></div>
+                <div class="side-translation" id="translation-green"></div>
             </div>
         </div>
 
         <div class="input-section">
-            <input type="text" id="playerInput" placeholder="Please type the word belonging to the side that you want to select" disabled>
+            <input type="text" id="playerInput" placeholder="Type the word and press Enter to select a side" disabled>
             <div class="game-status" id="gameStatus"></div>
+        </div>
+    </div>
+
+    <div class="game-over-modal" id="gameOverModal">
+        <div class="game-over-content">
+            <h1>Game Over!</h1>
+            <div class="stats">
+                <div><span class="stat-label">Final Level:</span> <span class="stat-value" id="finalLevel">0</span></div>
+                <div><span class="stat-label">Highest Score:</span> <span class="stat-value" id="highestScore">0</span></div>
+            </div>
+            <button onclick="startGame(); closeGameOverModal();">Play Again</button>
         </div>
     </div>
 
@@ -214,6 +299,13 @@
             yellow: ['banana', 'lemon', 'gold', 'sunny'],
             cyan: ['aqua', 'sky', 'ocean', 'turquoise'],
             green: ['forest', 'lime', 'sage', 'olive']
+        };
+
+        const translations = {
+            purple: ['amatista', 'uva', 'violeta', 'ciruela'],
+            yellow: ['plátano', 'limón', 'oro', 'soleado'],
+            cyan: ['agua', 'cielo', 'océano', 'turquesa'],
+            green: ['bosque', 'lima', 'salvia', 'aceituna']
         };
 
         const colors = ['purple', 'yellow', 'cyan', 'green'];
@@ -230,12 +322,14 @@
         let level = 0;
         let gameActive = false;
         let currentWords = {};
+        let currentTranslations = {};
         let usedWords = {
             purple: [],
             yellow: [],
             cyan: [],
             green: []
         };
+        let highestScore = localStorage.getItem('simonHighScore') ? parseInt(localStorage.getItem('simonHighScore')) : 0;
 
         const audioContext = new (window.AudioContext || window.webkitAudioContext)();
 
@@ -254,6 +348,24 @@
 
             oscillator.start(audioContext.currentTime);
             oscillator.stop(audioContext.currentTime + duration / 1000);
+        }
+
+        function playBoomSound() {
+            const now = audioContext.currentTime;
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            oscillator.frequency.setValueAtTime(150, now);
+            oscillator.frequency.exponentialRampToValueAtTime(50, now + 0.5);
+
+            gainNode.gain.setValueAtTime(0.5, now);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+
+            oscillator.start(now);
+            oscillator.stop(now + 0.5);
         }
 
         function lightUpSide(color) {
@@ -279,6 +391,11 @@
             return word;
         }
 
+        function getTranslation(color, word) {
+            const index = wordPool[color].indexOf(word);
+            return index !== -1 ? translations[color][index] : '';
+        }
+
         function setupWords() {
             currentWords = {
                 purple: getRandomWord('purple'),
@@ -287,10 +404,21 @@
                 green: getRandomWord('green')
             };
 
+            currentTranslations = {
+                purple: getTranslation('purple', currentWords.purple),
+                yellow: getTranslation('yellow', currentWords.yellow),
+                cyan: getTranslation('cyan', currentWords.cyan),
+                green: getTranslation('green', currentWords.green)
+            };
+
             document.getElementById('word-purple').textContent = currentWords.purple;
+            document.getElementById('translation-purple').textContent = currentTranslations.purple;
             document.getElementById('word-yellow').textContent = currentWords.yellow;
+            document.getElementById('translation-yellow').textContent = currentTranslations.yellow;
             document.getElementById('word-cyan').textContent = currentWords.cyan;
+            document.getElementById('translation-cyan').textContent = currentTranslations.cyan;
             document.getElementById('word-green').textContent = currentWords.green;
+            document.getElementById('translation-green').textContent = currentTranslations.green;
         }
 
         function playSequence() {
@@ -312,80 +440,70 @@
             }, delay + sequence.length * 800 + 500);
         }
 
-        function handleInput(event) {
-            if (!gameActive) return;
+        function handleKeyPress(event) {
+            if (event.key !== 'Enter' || !gameActive) return;
 
-            const char = event.target.value.toLowerCase();
-            const lastChar = char[char.length - 1];
+            event.preventDefault();
+            const input = document.getElementById('playerInput').value.trim().toLowerCase();
 
-            if (!char) {
-                document.getElementById('gameStatus').textContent = '';
+            if (!input) {
                 return;
             }
 
-            const validColors = Object.entries(currentWords)
-                .filter(([_, word]) => word.startsWith(char))
-                .map(([color, _]) => color);
+            let matchedColor = null;
 
-            if (validColors.length === 0) {
-                playSound(frequencies.buzzer);
-                event.target.value = '';
-                document.getElementById('gameStatus').textContent = '';
+            for (const [color, word] of Object.entries(currentWords)) {
+                if (word === input) {
+                    matchedColor = color;
+                    break;
+                }
+            }
+
+            if (!matchedColor) {
+                playBoomSound();
+                gameActive = false;
+                document.getElementById('playerInput').disabled = true;
+                document.getElementById('gameStatus').classList.add('game-over');
+                document.getElementById('gameStatus').textContent = `Game Over! Word not recognized.`;
+                document.body.classList.add('game-over-state');
+
+                setTimeout(() => {
+                    showGameOverModal();
+                }, 500);
                 return;
             }
 
-            if (char.length > 1) {
-                let matchedColor = null;
+            const expectedColor = sequence[playerSequence.length];
 
-                for (const [color, word] of Object.entries(currentWords)) {
-                    if (word === char) {
-                        matchedColor = color;
-                        break;
-                    }
-                }
+            if (matchedColor !== expectedColor) {
+                playBoomSound();
+                gameActive = false;
+                document.getElementById('playerInput').disabled = true;
+                document.getElementById('gameStatus').classList.add('game-over');
+                document.getElementById('gameStatus').textContent = `Game Over! Wrong sequence.`;
+                document.body.classList.add('game-over-state');
 
-                if (!matchedColor) {
-                    for (const [color, word] of Object.entries(currentWords)) {
-                        if (!word.startsWith(char)) {
-                            playSound(frequencies.buzzer);
-                            gameActive = false;
-                            document.getElementById('playerInput').disabled = true;
-                            document.getElementById('gameStatus').classList.add('game-over');
-                            document.getElementById('gameStatus').textContent = `Game Over! Wrong word. Final Level: ${level}`;
-                            return;
-                        }
-                    }
-                }
+                setTimeout(() => {
+                    showGameOverModal();
+                }, 500);
+                return;
+            }
 
-                if (matchedColor) {
-                    const expectedColor = sequence[playerSequence.length];
+            lightUpSide(matchedColor);
+            playerSequence.push(matchedColor);
+            document.getElementById('playerInput').value = '';
 
-                    if (matchedColor !== expectedColor) {
-                        playSound(frequencies.buzzer);
-                        gameActive = false;
-                        document.getElementById('playerInput').disabled = true;
-                        document.getElementById('gameStatus').classList.add('game-over');
-                        document.getElementById('gameStatus').textContent = `Game Over! Wrong sequence. Final Level: ${level}`;
-                        return;
-                    }
+            if (playerSequence.length === sequence.length) {
+                document.getElementById('gameStatus').classList.remove('game-over');
+                document.getElementById('gameStatus').classList.add('success');
+                document.getElementById('gameStatus').textContent = `Perfect! Level ${level} complete!`;
 
-                    lightUpSide(matchedColor);
-                    playerSequence.push(matchedColor);
-                    event.target.value = '';
+                gameActive = false;
+                document.getElementById('playerInput').disabled = true;
 
-                    if (playerSequence.length === sequence.length) {
-                        document.getElementById('gameStatus').classList.remove('game-over');
-                        document.getElementById('gameStatus').classList.add('success');
-                        document.getElementById('gameStatus').textContent = `Perfect! Level ${level} complete!`;
-
-                        gameActive = false;
-                        document.getElementById('playerInput').disabled = true;
-
-                        setTimeout(() => {
-                            nextLevel();
-                        }, 1500);
-                    }
-                }
+                setTimeout(() => {
+                    nextLevel();
+                }, 1500);
             }
         }
 
@@ -402,7 +520,24 @@
             playSequence();
         }
 
+        function showGameOverModal() {
+            if (level > highestScore) {
+                highestScore = level;
+                localStorage.setItem('simonHighScore', highestScore);
+            }
+
+            document.getElementById('finalLevel').textContent = level;
+            document.getElementById('highestScore').textContent = highestScore;
+            document.getElementById('gameOverModal').classList.add('show');
+        }
+
+        function closeGameOverModal() {
+            document.getElementById('gameOverModal').classList.remove('show');
+            document.body.classList.remove('game-over-state');
+        }
+
         function startGame() {
+            closeGameOverModal();
             sequence = [];
             playerSequence = [];
             level = 0;
@@ -416,7 +551,7 @@
             nextLevel();
         }
 
-        document.getElementById('playerInput').addEventListener('input', handleInput);
+        document.getElementById('playerInput').addEventListener('keypress', handleKeyPress);
     </script>
 </body>
 </html>

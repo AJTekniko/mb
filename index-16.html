@@ -106,34 +106,11 @@
             cursor: not-allowed;
         }
 
-        .game-board {
-            display: flex;
-            align-items: center;
-            gap: 30px;
-            justify-content: center;
-        }
-
-        .side-column {
-            display: flex;
-            flex-direction: column;
-            gap: 40px;
-            justify-content: center;
-            width: 100px;
-            text-align: center;
-        }
-
-        .left-column {
-            text-align: right;
-        }
-
-        .right-column {
-            text-align: left;
-        }
-
         .device-wrapper {
             position: relative;
             width: 500px;
             height: 500px;
+            margin: 20px 0;
         }
 
         .device-image {
@@ -147,20 +124,20 @@
             top: 47%;
             left: 50%;
             transform: translate(-50%, -50%);
-            width: 120px;
-            height: 60px;
+            width: 110px;
+            height: 55px;
             background-color: #7fbc3f;
             border-radius: 8px;
             display: flex;
             align-items: center;
             justify-content: center;
             font-family: 'Orbitron', monospace;
-            font-size: 36px;
+            font-size: 40px;
             font-weight: 900;
             color: #000;
             visibility: hidden;
             z-index: 10;
-            letter-spacing: 1px;
+            letter-spacing: 2px;
         }
 
         .timer.visible {
@@ -239,19 +216,6 @@
 
         .green-side.active {
             background-color: rgba(2, 148, 51, 0.6);
-        }
-
-        .bottom-words {
-            display: flex;
-            gap: 80px;
-            justify-content: center;
-            margin-top: 20px;
-        }
-
-        .word-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
         }
 
         .input-section {
@@ -367,39 +331,24 @@
             <button id="startBtn" onclick="startGame()">Start Game</button>
         </div>
 
-        <div class="game-board">
-            <div class="side-column left-column">
-                <div class="word-container">
-                    <div class="side-word" id="word-purple"></div>
-                    <div class="side-translation" id="translation-purple"></div>
-                </div>
+        <div class="device-wrapper">
+            <img src="https://raw.githubusercontent.com/AJTekniko/tgaii/main/device.png" alt="Device" class="device-image">
+            <div class="timer" id="timer">00:00</div>
+            <div class="side purple-side" data-color="purple">
+                <div class="side-word" id="word-purple"></div>
+                <div class="side-translation" id="translation-purple"></div>
             </div>
-
-            <div class="device-wrapper">
-                <img src="https://raw.githubusercontent.com/AJTekniko/tgaii/main/device.png" alt="Device" class="device-image">
-                <div class="timer" id="timer">00:00</div>
-                <div class="side purple-side" data-color="purple"></div>
-                <div class="side yellow-side" data-color="yellow"></div>
-                <div class="side cyan-side" data-color="cyan"></div>
-                <div class="side green-side" data-color="green"></div>
+            <div class="side yellow-side" data-color="yellow">
+                <div class="side-word" id="word-yellow"></div>
+                <div class="side-translation" id="translation-yellow"></div>
             </div>
-
-            <div class="side-column right-column">
-                <div class="word-container">
-                    <div class="side-word" id="word-yellow"></div>
-                    <div class="side-translation" id="translation-yellow"></div>
-                </div>
-            </div>
-        </div>
-
-        <div class="bottom-words">
-            <div class="word-container">
-                <div class="side-word" id="word-green"></div>
-                <div class="side-translation" id="translation-green"></div>
-            </div>
-            <div class="word-container">
+            <div class="side cyan-side" data-color="cyan">
                 <div class="side-word" id="word-cyan"></div>
                 <div class="side-translation" id="translation-cyan"></div>
+            </div>
+            <div class="side green-side" data-color="green">
+                <div class="side-word" id="word-green"></div>
+                <div class="side-translation" id="translation-green"></div>
             </div>
         </div>
 
